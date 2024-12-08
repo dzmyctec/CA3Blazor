@@ -2,8 +2,7 @@
 @using System.Text.Json
 @using System.Text.Json.Serialization;
 
-
-<h1>Top Scorers</h1>
+<h1>Top Players</h1>
 
 <label for="leagueSelect">Select League:</label>
 <select id="leagueSelect" @onchange="OnLeagueChange">
@@ -14,8 +13,8 @@
 </select>
 
 <button @onclick="GetTopScorers">Get Top Scorers</button>
-
-@if (topScorers == null)
+<button @onclick="GetTopAssists">Get Top Assisters</button> <!-- New Button -->
+@if (topPlayers == null)
 {
     <p>No data available</p>
 }
@@ -27,25 +26,43 @@ else
                 <th>Rank</th>
                 <th>Team</th>
                 <th>Player</th>
-                <th>Goals</th>
-                <th>Assists</th>
+                @if (isTopScorers)
+                {
+                    <th>Goals</th>
+                    <th>Assists</th>
+                }
+                else
+                {
+                    <th>Assists</th>
+                    <th>Goals</th>
+                }
                 <th>Appearances</th>
             </tr>
         </thead>
         <tbody>
-            @for (int i = 0; i < topScorers.Count; i++)
+            @for (int i = 0; i < topPlayers.Count; i++)
             {
-                var scorer = topScorers[i];
+                var player = topPlayers[i];
                 <tr>
                     <td>@(i + 1)</td>
                     <td>
-                        <img src="@scorer.Team.Logo" alt="Team Logo" width="40" height="40" />
+                        <img src="@player.Team.Logo" alt="Team Logo" width="40" height="40" />
                     </td>
-                    <td><strong>@scorer.Player.Name</strong></td>
-                    <td>@scorer.Statistics.Goals.Total</td>
-                    <td>@scorer.Statistics.Goals.Assists</td>
-                    <td>@scorer.Statistics.Games.Appearances</td>
-
+                    <td>
+                        <strong>@player.Player.Name</strong><br />
+                        <span style="color: gray; font-size: smaller;">@player.Team.Name</span>
+                    </td>
+                    @if (isTopScorers)
+                    {
+                        <td><strong>@player.Statistics.Goals.Total</strong></td>
+                        <td>@player.Statistics.Goals.Assists</td>
+                    }
+                    else
+                    {
+                        <td><strong>@player.Statistics.Goals.Assists</strong></td>
+                        <td>@player.Statistics.Goals.Total</td>
+                    }
+                    <td>@player.Statistics.Games.Appearances</td>
                 </tr>
             }
         </tbody>
@@ -53,7 +70,8 @@ else
 }
 
 @code {
-    private List<TopScorer> topScorers;
+    private List<TopScorer> topPlayers; //  list for both scorers and assisters
+    private bool isTopScorers = true; // Flag to determine the data type
     private List<League> leagues = new List<League>
     {
         new League { Id = 39, Name = "Premier League" },
@@ -66,18 +84,30 @@ else
 
     private async Task GetTopScorers()
     {
+        isTopScorers = true; // Set the flag for scorers
+        await FetchTopPlayers("topscorers"); // Fetch top scorers
+    }
+
+    private async Task GetTopAssists()
+    {
+        isTopScorers = false; // Set the flag for assisters
+        await FetchTopPlayers("topassists"); // Fetch top assisters
+    }
+
+    private async Task FetchTopPlayers(string endpoint)
+    {
         try
         {
             using var client = new HttpClient();
             client.DefaultRequestHeaders.Add("x-rapidapi-key", "a88ccbd61bmsh35c661edd43fe77p1306f3jsn6e51e1e2b869");
             client.DefaultRequestHeaders.Add("x-rapidapi-host", "api-football-v1.p.rapidapi.com");
 
-            string url = $"https://api-football-v1.p.rapidapi.com/v3/players/topscorers?league={selectedLeagueId}&season=2024";
+            string url = $"https://api-football-v1.p.rapidapi.com/v3/players/{endpoint}?league={selectedLeagueId}&season=2024";
             var response = await client.GetStringAsync(url);
             var apiResponse = JsonSerializer.Deserialize<ApiResponse>(response, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-            topScorers = apiResponse?.Response?.Select((r, index) => new TopScorer
-               {
+            topPlayers = apiResponse?.Response?.Select((r, index) => new TopScorer
+                {
                     Player = r.Player,
                     Team = r.Statistics.FirstOrDefault()?.Team,
                     Statistics = new PlayerStatistics
