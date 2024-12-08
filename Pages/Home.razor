@@ -1,8 +1,17 @@
 ﻿@page "/"
 @using System.Text.Json
+@using System.Text.Json.Serialization;
 
 
 <h1>Top Scorers</h1>
+
+<label for="leagueSelect">Select League:</label>
+<select id="leagueSelect" @onchange="OnLeagueChange">
+    @foreach (var league in leagues)
+    {
+        <option value="@league.Id">@league.Name</option>
+    }
+</select>
 
 <button @onclick="GetTopScorers">Get Top Scorers</button>
 
@@ -15,22 +24,28 @@ else
     <table class="table">
         <thead>
             <tr>
-                <th>Name</th>
-                <th>Age</th>
-                <th>Nationality</th>
+                <th>Rank</th>
+                <th>Team</th>
+                <th>Player</th>
                 <th>Goals</th>
                 <th>Assists</th>
+                <th>Appearances</th>
             </tr>
         </thead>
         <tbody>
-            @foreach (var scorer in topScorers)
+            @for (int i = 0; i < topScorers.Count; i++)
             {
+                var scorer = topScorers[i];
                 <tr>
-                    <td>@scorer.Player.Name</td>
-                    <td>@scorer.Player.Age</td>
-                    <td>@scorer.Player.Nationality</td>
+                    <td>@(i + 1)</td>
+                    <td>
+                        <img src="@scorer.Team.Logo" alt="Team Logo" width="40" height="40" />
+                    </td>
+                    <td><strong>@scorer.Player.Name</strong></td>
                     <td>@scorer.Statistics.Goals.Total</td>
                     <td>@scorer.Statistics.Goals.Assists</td>
+                    <td>@scorer.Statistics.Games.Appearances</td>
+
                 </tr>
             }
         </tbody>
@@ -39,6 +54,15 @@ else
 
 @code {
     private List<TopScorer> topScorers;
+    private List<League> leagues = new List<League>
+    {
+        new League { Id = 39, Name = "Premier League" },
+        new League { Id = 140, Name = "La Liga" },
+        new League { Id = 78, Name = "Bundesliga" },
+        new League { Id = 135, Name = "Serie A" },
+        new League { Id = 61, Name = "Ligue 1" }
+    };
+    private int selectedLeagueId = 39; // Default to Premier League
 
     private async Task GetTopScorers()
     {
@@ -48,18 +72,35 @@ else
             client.DefaultRequestHeaders.Add("x-rapidapi-key", "a88ccbd61bmsh35c661edd43fe77p1306f3jsn6e51e1e2b869");
             client.DefaultRequestHeaders.Add("x-rapidapi-host", "api-football-v1.p.rapidapi.com");
 
-            var response = await client.GetStringAsync("https://api-football-v1.p.rapidapi.com/v3/players/topscorers?league=39&season=2024");
+            string url = $"https://api-football-v1.p.rapidapi.com/v3/players/topscorers?league={selectedLeagueId}&season=2024";
+            var response = await client.GetStringAsync(url);
             var apiResponse = JsonSerializer.Deserialize<ApiResponse>(response, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
-            topScorers = apiResponse?.Response?.Select(r => new TopScorer
-                {
+            topScorers = apiResponse?.Response?.Select((r, index) => new TopScorer
+               {
                     Player = r.Player,
-                    Statistics = r.Statistics.FirstOrDefault()
+                    Team = r.Statistics.FirstOrDefault()?.Team,
+                    Statistics = new PlayerStatistics
+                    {
+                        Goals = r.Statistics.FirstOrDefault()?.Goals,
+                        Games = new Games
+                        {
+                            Appearances = r.Statistics.FirstOrDefault()?.Games.Appearances ?? 0
+                        }
+                    }
                 }).ToList();
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+
+    private void OnLeagueChange(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value.ToString(), out int leagueId))
+        {
+            selectedLeagueId = leagueId;
         }
     }
 
@@ -77,13 +118,20 @@ else
     private class Player
     {
         public string Name { get; set; }
-        public int Age { get; set; }
-        public string Nationality { get; set; }
+        public string Photo { get; set; }
     }
 
     private class Statistics
     {
+        public Team Team { get; set; }
         public Goals Goals { get; set; }
+        public Games Games { get; set; }
+    }
+
+    private class Team
+    {
+        public string Name { get; set; }
+        public string Logo { get; set; }
     }
 
     private class Goals
@@ -92,9 +140,28 @@ else
         public int? Assists { get; set; }
     }
 
+    private class Games
+    {
+        [JsonPropertyName("appearences")]
+        public int Appearances { get; set; }
+    }
+
+    private class PlayerStatistics
+    {
+        public Goals Goals { get; set; }
+        public Games Games { get; set; }
+    }
+
     private class TopScorer
     {
         public Player Player { get; set; }
-        public Statistics Statistics { get; set; }
+        public Team Team { get; set; }
+        public PlayerStatistics Statistics { get; set; }
+    }
+
+    private class League
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
     }
 }
