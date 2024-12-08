@@ -1,0 +1,100 @@
+﻿@page "/"
+@using System.Text.Json
+
+
+<h1>Top Scorers</h1>
+
+<button @onclick="GetTopScorers">Get Top Scorers</button>
+
+@if (topScorers == null)
+{
+    <p>No data available</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Age</th>
+                <th>Nationality</th>
+                <th>Goals</th>
+                <th>Assists</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var scorer in topScorers)
+            {
+                <tr>
+                    <td>@scorer.Player.Name</td>
+                    <td>@scorer.Player.Age</td>
+                    <td>@scorer.Player.Nationality</td>
+                    <td>@scorer.Statistics.Goals.Total</td>
+                    <td>@scorer.Statistics.Goals.Assists</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<TopScorer> topScorers;
+
+    private async Task GetTopScorers()
+    {
+        try
+        {
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("x-rapidapi-key", "a88ccbd61bmsh35c661edd43fe77p1306f3jsn6e51e1e2b869");
+            client.DefaultRequestHeaders.Add("x-rapidapi-host", "api-football-v1.p.rapidapi.com");
+
+            var response = await client.GetStringAsync("https://api-football-v1.p.rapidapi.com/v3/players/topscorers?league=39&season=2024");
+            var apiResponse = JsonSerializer.Deserialize<ApiResponse>(response, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            topScorers = apiResponse?.Response?.Select(r => new TopScorer
+                {
+                    Player = r.Player,
+                    Statistics = r.Statistics.FirstOrDefault()
+                }).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+
+    private class ApiResponse
+    {
+        public List<ApiResponseItem> Response { get; set; }
+    }
+
+    private class ApiResponseItem
+    {
+        public Player Player { get; set; }
+        public List<Statistics> Statistics { get; set; }
+    }
+
+    private class Player
+    {
+        public string Name { get; set; }
+        public int Age { get; set; }
+        public string Nationality { get; set; }
+    }
+
+    private class Statistics
+    {
+        public Goals Goals { get; set; }
+    }
+
+    private class Goals
+    {
+        public int Total { get; set; }
+        public int? Assists { get; set; }
+    }
+
+    private class TopScorer
+    {
+        public Player Player { get; set; }
+        public Statistics Statistics { get; set; }
+    }
+}
