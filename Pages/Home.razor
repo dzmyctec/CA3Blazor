@@ -13,64 +13,105 @@
 </select>
 
 <button @onclick="GetTopScorers">Get Top Scorers</button>
-<button @onclick="GetTopAssists">Get Top Assisters</button> <!-- New Button -->
+<button @onclick="GetTopAssists">Get Top Assisters</button>
 @if (topPlayers == null)
 {
     <p>No data available</p>
 }
 else
 {
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Rank</th>
-                <th>Team</th>
-                <th>Player</th>
-                @if (isTopScorers)
-                {
-                    <th>Goals</th>
-                    <th>Assists</th>
-                }
-                else
-                {
-                    <th>Assists</th>
-                    <th>Goals</th>
-                }
-                <th>Appearances</th>
-            </tr>
-        </thead>
-        <tbody>
-            @for (int i = 0; i < topPlayers.Count; i++)
-            {
-                var player = topPlayers[i];
+    @if (isTopScorers)
+    {
+        <table class="table">
+            <thead>
                 <tr>
-                    <td>@(i + 1)</td>
-                    <td>
-                        <img src="@player.Team.Logo" alt="Team Logo" width="40" height="40" />
-                    </td>
-                    <td>
-                        <strong>@player.Player.Name</strong><br />
-                        <span style="color: gray; font-size: smaller;">@player.Team.Name</span>
-                    </td>
-                    @if (isTopScorers)
-                    {
+                    <th>Rank</th>
+                    <th>Team</th>
+                    <th>Player</th>
+                    <th>Goals</th>
+                    <th>Assists</th>
+                    <th>Appearances</th>
+                    <th>Goals per 90</th>
+                    <th>Minutes per Goal</th>
+                    <th>Total Shots</th> <!-- New Column -->
+                    <th>Goal Conversion (%)</th>
+                    <th>Shot Accuracy (%)</th> <!-- New Column -->
+                </tr>
+            </thead>
+            <tbody>
+                @for (int i = 0; i < topPlayers.Count; i++)
+                {
+                    var player = topPlayers[i];
+                    <tr>
+                        <td>@(i + 1)</td>
+                        <td>
+                            <img src="@player.Team.Logo" alt="Team Logo" width="40" height="40" />
+                        </td>
+                        <td>
+                            <strong>@player.Player.Name</strong><br />
+                            <span style="color: gray; font-size: smaller;">@player.Team.Name</span>
+                        </td>
                         <td><strong>@player.Statistics.Goals.Total</strong></td>
                         <td>@player.Statistics.Goals.Assists</td>
-                    }
-                    else
-                    {
+                        <td>@player.Statistics.Games.Appearances</td>
+                        <td>@player.GoalsPer90</td>
+                        <td>@player.MinutesPerGoal</td>
+                        <td>@player.Statistics.Shots.Total</td> <!-- Total Shots -->
+                        <td>@player.GoalConversion</td>
+                        <td>
+                            @if (player.Statistics.Shots.Total > 0)
+                            {
+                                @Math.Round((player.Statistics.Shots.On ?? 0) / (double)player.Statistics.Shots.Total * 100, 2)
+                            }
+                            else
+                            {
+                                
+                            }
+                        </td> <!-- Shot Accuracy -->
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else
+    {
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Rank</th>
+                    <th>Team</th>
+                    <th>Player</th>
+                    <th>Assists</th>
+                    <th>Goals</th>
+                    <th>Appearances</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (int i = 0; i < topPlayers.Count; i++)
+                {
+                    var player = topPlayers[i];
+                    <tr>
+                        <td>@(i + 1)</td>
+                        <td>
+                            <img src="@player.Team.Logo" alt="Team Logo" width="40" height="40" />
+                        </td>
+                        <td>
+                            <strong>@player.Player.Name</strong><br />
+                            <span style="color: gray; font-size: smaller;">@player.Team.Name</span>
+                        </td>
                         <td><strong>@player.Statistics.Goals.Assists</strong></td>
                         <td>@player.Statistics.Goals.Total</td>
-                    }
-                    <td>@player.Statistics.Games.Appearances</td>
-                </tr>
-            }
-        </tbody>
-    </table>
+                        <td>@player.Statistics.Games.Appearances</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
 }
 
+
 @code {
-    private List<TopScorer> topPlayers; //  list for both scorers and assisters
+    private List<TopScorer> topPlayers; // List for both scorers and assisters
     private bool isTopScorers = true; // Flag to determine the data type
     private List<League> leagues = new List<League>
     {
@@ -113,10 +154,8 @@ else
                     Statistics = new PlayerStatistics
                     {
                         Goals = r.Statistics.FirstOrDefault()?.Goals,
-                        Games = new Games
-                        {
-                            Appearances = r.Statistics.FirstOrDefault()?.Games.Appearances ?? 0
-                        }
+                        Games = r.Statistics.FirstOrDefault()?.Games,
+                        Shots = r.Statistics.FirstOrDefault()?.Shots
                     }
                 }).ToList();
         }
@@ -156,6 +195,7 @@ else
         public Team Team { get; set; }
         public Goals Goals { get; set; }
         public Games Games { get; set; }
+        public Shots Shots { get; set; }
     }
 
     private class Team
@@ -176,10 +216,17 @@ else
         public int Appearances { get; set; }
     }
 
+    private class Shots
+    {
+        public int? Total { get; set; }
+        public int? On { get; set; }
+    }
+
     private class PlayerStatistics
     {
         public Goals Goals { get; set; }
         public Games Games { get; set; }
+        public Shots Shots { get; set; }
     }
 
     private class TopScorer
@@ -187,6 +234,18 @@ else
         public Player Player { get; set; }
         public Team Team { get; set; }
         public PlayerStatistics Statistics { get; set; }
+
+        public double GoalsPer90 => Statistics?.Games?.Appearances > 0 && Statistics?.Games?.Appearances * 90 > 0
+            ? Math.Round((Statistics.Goals.Total * 90.0) / (Statistics.Games.Appearances * 90), 2)
+            : 0;
+
+        public double? MinutesPerGoal => Statistics?.Goals?.Total > 0
+            ? Math.Round((Statistics.Games.Appearances * 90.0) / Statistics.Goals.Total, 2)
+            : (double?)null;
+
+        public double? GoalConversion => Statistics?.Shots?.Total > 0
+            ? Math.Round((Statistics.Goals.Total / (double)Statistics.Shots.Total) * 100, 2)
+            : (double?)null;
     }
 
     private class League
