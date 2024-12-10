@@ -1,18 +1,60 @@
 ﻿@inherits LayoutComponentBase
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
+@inject NavigationManager NavigationManager
+
+<main style="width: 100%; margin: 0; padding: 0;">
+    <div class="top-row px-4 navbar">
+        <span class="navbar-title">BBC SPORT</span>
+        <a href="/" class="navbar-link @(IsSelected("/"))">Top Scorers</a>
+        <a href="/counter" class="navbar-link @(IsSelected("/counter"))" style="margin-left: 10px;">Table</a>
     </div>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+    <article class="content px-4">
+        @Body
+    </article>
+</main>
 
+@code {
+    private string currentPage;
 
+    protected override void OnInitialized()
+    {
+        currentPage = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+    }
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+    private string IsSelected(string page) => currentPage == page ? "selected" : "";
+}
+
+<style>
+    .navbar {
+        background-color: yellow;
+        font-size: 1.2rem;
+        padding: 10px;
+        display: flex;
+        align-items: center;
+    }
+
+    .navbar-title {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-right: auto;
+    }
+
+    .navbar-link {
+        text-decoration: none;
+        color: black;
+        font-weight: bold;
+        margin-right: 10px;
+        padding: 5px 10px;
+        transition: background-color 0.3s, color 0.3s;
+    }
+
+        .navbar-link:hover {
+            background-color: black;
+            color: yellow;
+        }
+
+        .navbar-link.selected {
+            background-color: black;
+            color: yellow;
+        }
+</style>

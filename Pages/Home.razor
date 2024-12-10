@@ -12,8 +12,24 @@
     }
 </select>
 
-<button @onclick="GetTopScorers">Get Top Scorers</button>
-<button @onclick="GetTopAssists">Get Top Assisters</button>
+@if (selectedLeague != null)
+{
+    <h2>@selectedLeague.Name</h2>
+    <img src="@selectedLeague.Logo" alt="@selectedLeague.Name Logo" width="100" />
+    <img src="@selectedLeague.Flag" alt="@selectedLeague.Country Flag" width="50" />
+}
+
+<div class="button-container">
+    <button class="custom-button @(isTopScorers ? "active" : "")"
+            @onclick="GetTopScorers">
+        Top Scorers
+    </button>
+    <button class="custom-button @(!isTopScorers ? "active" : "")"
+            @onclick="GetTopAssists">
+        Top Assists
+    </button>
+</div>
+
 @if (topPlayers == null)
 {
     <p>No data available</p>
@@ -33,9 +49,9 @@ else
                     <th>Appearances</th>
                     <th>Goals per 90</th>
                     <th>Minutes per Goal</th>
-                    <th>Total Shots</th> <!-- New Column -->
+                    <th>Total Shots</th>
                     <th>Goal Conversion (%)</th>
-                    <th>Shot Accuracy (%)</th> <!-- New Column -->
+                    <th>Shot Accuracy (%)</th>
                 </tr>
             </thead>
             <tbody>
@@ -54,20 +70,16 @@ else
                         <td><strong>@player.Statistics.Goals.Total</strong></td>
                         <td>@player.Statistics.Goals.Assists</td>
                         <td>@player.Statistics.Games.Appearances</td>
-                        <td>@player.GoalsPer90</td>
-                        <td>@player.MinutesPerGoal</td>
-                        <td>@player.Statistics.Shots.Total</td> <!-- Total Shots -->
-                        <td>@player.GoalConversion</td>
+                        <td>@Math.Round(player.GoalsPer90, 2)</td>
+                        <td>@Math.Round(player.MinutesPerGoal, 2)</td>
+                        <td>@player.Statistics.Shots.Total</td>
+                        <td>@Math.Round(player.GoalConversion, 2)</td>
                         <td>
                             @if (player.Statistics.Shots.Total > 0)
                             {
                                 @Math.Round((player.Statistics.Shots.On ?? 0) / (double)player.Statistics.Shots.Total * 100, 2)
                             }
-                            else
-                            {
-                                
-                            }
-                        </td> <!-- Shot Accuracy -->
+                        </td>
                     </tr>
                 }
             </tbody>
@@ -84,6 +96,9 @@ else
                     <th>Assists</th>
                     <th>Goals</th>
                     <th>Appearances</th>
+                    <th>Total Passes</th>
+                    <th>Key Passes</th>
+                    <th>Assists per 90</th>
                 </tr>
             </thead>
             <tbody>
@@ -102,6 +117,9 @@ else
                         <td><strong>@player.Statistics.Goals.Assists</strong></td>
                         <td>@player.Statistics.Goals.Total</td>
                         <td>@player.Statistics.Games.Appearances</td>
+                        <td>@player.Statistics.Passes.Total</td>
+                        <td>@player.Statistics.Passes.Key</td>
+                        <td>@Math.Round(player.AssistsPer90, 2)</td>
                     </tr>
                 }
             </tbody>
@@ -109,30 +127,36 @@ else
     }
 }
 
-
 @code {
-    private List<TopScorer> topPlayers; // List for both scorers and assisters
-    private bool isTopScorers = true; // Flag to determine the data type
+    private List<TopScorer> topPlayers;
+    private bool isTopScorers = true;
     private List<League> leagues = new List<League>
     {
-        new League { Id = 39, Name = "Premier League" },
-        new League { Id = 140, Name = "La Liga" },
-        new League { Id = 78, Name = "Bundesliga" },
-        new League { Id = 135, Name = "Serie A" },
-        new League { Id = 61, Name = "Ligue 1" }
+        new League { Id = 39, Name = "Premier League", Logo = "https://media.api-sports.io/football/leagues/39.png", Flag = "https://media.api-sports.io/flags/gb-eng.svg" },
+        new League { Id = 140, Name = "La Liga", Logo = "https://media.api-sports.io/football/leagues/140.png", Flag = "https://media.api-sports.io/flags/es.svg" },
+        new League { Id = 78, Name = "Bundesliga", Logo = "https://media.api-sports.io/football/leagues/78.png", Flag = "https://media.api-sports.io/flags/de.svg" },
+        new League { Id = 135, Name = "Serie A", Logo = "https://media.api-sports.io/football/leagues/135.png", Flag = "https://media.api-sports.io/flags/it.svg" },
+        new League { Id = 61, Name = "Ligue 1", Logo = "https://media.api-sports.io/football/leagues/61.png", Flag = "https://media.api-sports.io/flags/fr.svg" }
     };
-    private int selectedLeagueId = 39; // Default to Premier League
+    private League selectedLeague;
+    private int selectedLeagueId = 39;
+
+    protected override async Task OnInitializedAsync()
+    {
+        selectedLeague = leagues.FirstOrDefault(l => l.Id == selectedLeagueId);
+        await GetTopScorers(); // Automatically load Top Scorers data
+    }
 
     private async Task GetTopScorers()
     {
-        isTopScorers = true; // Set the flag for scorers
-        await FetchTopPlayers("topscorers"); // Fetch top scorers
+        isTopScorers = true;
+        await FetchTopPlayers("topscorers");
     }
 
     private async Task GetTopAssists()
     {
-        isTopScorers = false; // Set the flag for assisters
-        await FetchTopPlayers("topassists"); // Fetch top assisters
+        isTopScorers = false;
+        await FetchTopPlayers("topassists");
     }
 
     private async Task FetchTopPlayers(string endpoint)
@@ -140,10 +164,13 @@ else
         try
         {
             using var client = new HttpClient();
-            client.DefaultRequestHeaders.Add("x-rapidapi-key", "a88ccbd61bmsh35c661edd43fe77p1306f3jsn6e51e1e2b869");
-            client.DefaultRequestHeaders.Add("x-rapidapi-host", "api-football-v1.p.rapidapi.com");
+            // Set the headers with the new API key and host
+            client.DefaultRequestHeaders.Add("x-rapidapi-key", "22f289cb1982db561c68e750a8a3a90a");
+            client.DefaultRequestHeaders.Add("x-rapidapi-host", "v3.football.api-sports.io");
 
-            string url = $"https://api-football-v1.p.rapidapi.com/v3/players/{endpoint}?league={selectedLeagueId}&season=2024";
+            // Update the URL for the "players/topscorers" endpoint
+            string url = $"https://v3.football.api-sports.io/players/topscorers?league={selectedLeagueId}&season={2021}";
+
             var response = await client.GetStringAsync(url);
             var apiResponse = JsonSerializer.Deserialize<ApiResponse>(response, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
@@ -155,9 +182,19 @@ else
                     {
                         Goals = r.Statistics.FirstOrDefault()?.Goals,
                         Games = r.Statistics.FirstOrDefault()?.Games,
-                        Shots = r.Statistics.FirstOrDefault()?.Shots
+                        Shots = r.Statistics.FirstOrDefault()?.Shots,
+                        Passes = r.Statistics.FirstOrDefault()?.Passes
                     }
                 }).ToList();
+
+            if (isTopScorers)
+            {
+                topPlayers = topPlayers.OrderByDescending(p => p.Statistics.Goals.Total).ToList();
+            }
+            else
+            {
+                topPlayers = topPlayers.OrderByDescending(p => p.Statistics.Goals.Assists ?? 0).ToList();
+            }
         }
         catch (Exception ex)
         {
@@ -170,6 +207,7 @@ else
         if (int.TryParse(e.Value.ToString(), out int leagueId))
         {
             selectedLeagueId = leagueId;
+            selectedLeague = leagues.FirstOrDefault(l => l.Id == selectedLeagueId);
         }
     }
 
@@ -196,6 +234,7 @@ else
         public Goals Goals { get; set; }
         public Games Games { get; set; }
         public Shots Shots { get; set; }
+        public Passes Passes { get; set; }
     }
 
     private class Team
@@ -214,6 +253,8 @@ else
     {
         [JsonPropertyName("appearences")]
         public int Appearances { get; set; }
+
+        public int Minutes => Appearances * 90; // Calculate minutes directly based on appearances
     }
 
     private class Shots
@@ -222,11 +263,18 @@ else
         public int? On { get; set; }
     }
 
+    private class Passes
+    {
+        public int? Total { get; set; }
+        public int? Key { get; set; }
+    }
+
     private class PlayerStatistics
     {
         public Goals Goals { get; set; }
         public Games Games { get; set; }
         public Shots Shots { get; set; }
+        public Passes Passes { get; set; }
     }
 
     private class TopScorer
@@ -235,22 +283,93 @@ else
         public Team Team { get; set; }
         public PlayerStatistics Statistics { get; set; }
 
-        public double GoalsPer90 => Statistics?.Games?.Appearances > 0 && Statistics?.Games?.Appearances * 90 > 0
-            ? Math.Round((Statistics.Goals.Total * 90.0) / (Statistics.Games.Appearances * 90), 2)
+        public double GoalsPer90 => Statistics?.Goals?.Total > 0 && Statistics?.Games?.Minutes > 0
+            ? (Statistics.Goals.Total / (double)Statistics.Games.Minutes) * 90
             : 0;
 
-        public double? MinutesPerGoal => Statistics?.Goals?.Total > 0
-            ? Math.Round((Statistics.Games.Appearances * 90.0) / Statistics.Goals.Total, 2)
-            : (double?)null;
+        public double MinutesPerGoal => Statistics?.Goals?.Total > 0 && Statistics?.Games?.Minutes > 0
+            ? Statistics.Games.Minutes / (double)Statistics.Goals.Total
+            : 0;
 
-        public double? GoalConversion => Statistics?.Shots?.Total > 0
-            ? Math.Round((Statistics.Goals.Total / (double)Statistics.Shots.Total) * 100, 2)
-            : (double?)null;
+        public double AssistsPer90 => Statistics?.Goals?.Assists > 0 && Statistics?.Games?.Minutes > 0
+            ? (Statistics.Goals.Assists.Value / (double)Statistics.Games.Minutes) * 90
+            : 0;
+
+        public double GoalConversion => Statistics?.Shots?.Total > 0
+            ? (Statistics.Goals.Total / (double)Statistics.Shots.Total) * 100
+            : 0;
     }
 
     private class League
     {
         public int Id { get; set; }
         public string Name { get; set; }
+        public string Logo { get; set; }
+        public string Flag { get; set; }
+        public string Country { get; set; }
     }
 }
+
+<style>
+
+    /* Center alignment for the button container */
+    .button-container {
+        display: flex;
+        justify-content: center; /* Center horizontally */
+        align-items: center; /* Center vertically */
+        margin: 20px 0; /* Add spacing above and below */
+        gap: 20px; /* Space between buttons */
+    }
+
+    /* Base button style */
+    .custom-button {
+        background-color: #ffffff; /* White background */
+        color: #333333; /* Dark text */
+        border: none; /* Remove borders */
+        border-radius: 0; /* No rounded corners */
+        padding: 10px 25px; /* Button size */
+        font-size: 16px; /* Text size */
+        font-weight: bold; /* Bold text */
+        cursor: pointer; /* Pointer cursor on hover */
+        position: relative; /* Needed for underline effect */
+        outline: none; /* Remove default focus styles */
+        transition: color 0.3s ease; /* Smooth text color transition */
+        text-align: center; /* Ensure text is centered */
+    }
+
+        /* Hover effect with underline */
+        .custom-button::after {
+            content: ''; /* Pseudo-element for the underline */
+            display: block;
+            position: absolute;
+            bottom: -5px; /* Position underline slightly below the button */
+            left: 50%; /* Start from the center */
+            width: 0; /* Initially no width */
+            height: 3px; /* Height of the underline */
+            background-color: #4CAF50; /* Green underline */
+            transition: width 0.3s ease, left 0.3s ease; /* Smooth underline expansion */
+        }
+
+        /* Expand underline on hover */
+        .custom-button:hover::after {
+            width: 100%; /* Full width on hover */
+            left: 0; /* Align to start */
+        }
+
+        /* Active button state */
+        .custom-button.active {
+            color: #4CAF50; /* Green text for active */
+            font-weight: bold; /* Highlight active button text */
+        }
+
+            .custom-button.active::after {
+                width: 100%; /* Full underline for active */
+                left: 0; /* Align underline to start */
+            }
+
+        /* Subtle hover color change for text */
+        .custom-button:hover {
+            color: #4CAF50; /* Green text on hover */
+        }
+
+</style>
